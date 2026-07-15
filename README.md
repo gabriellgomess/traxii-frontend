@@ -48,12 +48,20 @@ src/
 | `/app/ajuda`   | FAQ + chat                                  |
 | `/admin`       | Gerenciador de Whitelabel (CRUD de marcas)  |
 
-## Conectando ao Laravel (próxima etapa)
+## Conexão com a API Laravel
 
-Cada função em `src/services/*` tem no comentário o endpoint REST sugerido
-(ex.: `POST /api/pix/transfers`). Para conectar:
+A URL da API fica em `.env` (`VITE_API_URL`). O client HTTP é `src/services/http.ts`
+(Bearer token do Sanctum, salvo em `localStorage`).
 
-1. Configurar axios em `src/services/api.ts` (baseURL, interceptor de token).
-2. Substituir o corpo de cada service por chamadas HTTP — as assinaturas e os
-   tipos de `src/types` não mudam, então páginas e contexts ficam intactos.
-3. Trocar a persistência de marcas do `localStorage` pelos endpoints `/api/brands`.
+**Já conectado (Fase 1):**
+
+- Auth do gerenciador: `/admin/login` (e-mail + senha) → `POST /api/auth/login`,
+  sessão restaurada via `GET /api/auth/me`, guard `RequireAdmin` no `/admin`.
+- Gerenciador Whitelabel: CRUD de empresas via `/api/companies` (somente
+  super admin), upload de logo em multipart, tema público da landing via
+  `GET /api/public/theme?domain=`.
+- Credencial seed: `admin@traxiinvest.com` / `password` (trocar em produção).
+
+**Ainda mockado:** login do correntista (`/login`, qualquer CPF/senha) e todo o
+banking `/app` (saldo, Pix, TED, extrato). Cada função em `src/services/*` tem no
+comentário o endpoint REST sugerido para as próximas fases.

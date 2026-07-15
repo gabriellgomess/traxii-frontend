@@ -9,29 +9,40 @@ import {
 import type { Brand } from '../types';
 import { DEFAULT_BRANDS } from '../mocks/db';
 import * as brandService from '../services/brandService';
+import type { SaveBrandOptions } from '../services/brandService';
 
 interface BrandContextValue {
+  /** Lista completa (disponível após loadBrands, que exige admin autenticado) */
   brands: Brand[];
   activeBrand: Brand;
   activateBrand: (id: string) => void;
-  saveBrand: (brand: Brand, apply?: boolean) => Promise<void>;
+  /** Carrega as marcas da API (chamar no Gerenciador, após login) */
+  loadBrands: () => Promise<void>;
+  saveBrand: (brand: Brand, options: SaveBrandOptions, apply?: boolean) => Promise<Brand>;
   deleteBrand: (id: string) => Promise<void>;
 }
 
 const BrandContext = createContext<BrandContextValue | null>(null);
 
 export function BrandProvider({ children }: { children: ReactNode }) {
-  const [brands, setBrands] = useState<Brand[]>(DEFAULT_BRANDS);
-  const [activeId, setActiveId] = useState<string>(
-    () => brandService.getActiveBrandId() ?? DEFAULT_BRANDS[0].id,
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [publicBrand, setPublicBrand] = useState<Brand | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(
+    brandService.getActiveBrandId,
   );
 
+  // Tema público resolvido pelo domínio (landing/login antes de qualquer auth)
   useEffect(() => {
-    brandService.listBrands().then(setBrands);
+    brandService
+      .fetchPublicTheme()
+      .then(setPublicBrand)
+      .catch(() => setPublicBrand(null)); // API fora do ar → fallback local
   }, []);
 
   const activeBrand =
-    brands.find((b) => b.id === activeId) ?? brands[0] ?? DEFAULT_BRANDS[0];
+    brands.find((b) => b.id === activeId) ??
+    publicBrand ??
+    DEFAULT_BRANDS[0];
 
   // Aplica o tema da marca ativa em toda a aplicação (CSS variables)
   useEffect(() => {
@@ -42,32 +53,43 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     document.title = activeBrand.name + ' · Internet Banking';
   }, [activeBrand]);
 
+  const loadBrands = useCallback(async () => {
+    setBrands(await brandService.listBrands());
+  }, []);
+
   const activateBrand = useCallback((id: string) => {
     brandService.setActiveBrandId(id);
     setActiveId(id);
   }, []);
 
   const saveBrand = useCallback(
-    async (brand: Brand, apply = false) => {
-      const next = await brandService.saveBrand(brand);
-      setBrands(next);
-      if (apply) activateBrand(brand.id);
+    async (brand: Brand, options: SaveBrandOptions, apply = false) => {
+      const saved = await brandService.saveBrand(brand, options);
+      setBrands((prev) => {
+        const exists = prev.some((b) => b.id === saved.id);
+        return exists ? prev.map((b) => (b.id === saved.id ? saved : b)) : [...prev, saved];
+      });
+      if (apply) activateBrand(saved.id);
+      return saved;
     },
     [activateBrand],
   );
 
   const deleteBrand = useCallback(
     async (id: string) => {
-      const next = await brandService.deleteBrand(id);
-      setBrands(next);
-      if (id === activeId && next.length > 0) activateBrand(next[0].id);
+      await brandService.deleteBrand(id);
+      setBrands((prev) => prev.filter((b) => b.id !== id));
+      if (id === activeId) {
+        localStorage.removeItem('wl_active_brand');
+        setActiveId(null);
+      }
     },
-    [activeId, activateBrand],
+    [activeId],
   );
 
   return (
     <BrandContext.Provider
-      value={{ brands, activeBrand, activateBrand, saveBrand, deleteBrand }}
+      value={{ brands, activeBrand, activateBrand, loadBrands, saveBrand, deleteBrand }}
     >
       {children}
     </BrandContext.Provider>

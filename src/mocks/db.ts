@@ -9,10 +9,10 @@ import type {
 } from '../types';
 
 export const DEFAULT_BRANDS: Brand[] = [
-  { id: 'nova', name: 'NovaBank', domain: 'novabank.com.br', primaryColor: '#1437C9', secondaryColor: '#FF7A1A', logoUrl: null },
-  { id: 'verde', name: 'Verde Pay', domain: 'verdepay.com.br', primaryColor: '#0B8A5C', secondaryColor: '#FFC53D', logoUrl: null },
-  { id: 'aurum', name: 'Aurum', domain: 'aurum.com.br', primaryColor: '#8A6D1F', secondaryColor: '#16181D', logoUrl: null },
-  { id: 'rubi', name: 'Rubi Bank', domain: 'rubibank.com.br', primaryColor: '#C81E4B', secondaryColor: '#5B2A86', logoUrl: null },
+  { id: 'nova', name: 'NovaBank', domain: 'novabank.com.br', primaryColor: '#1437C9', secondaryColor: '#FF7A1A', logoUrl: null, isActive: true },
+  { id: 'verde', name: 'Verde Pay', domain: 'verdepay.com.br', primaryColor: '#0B8A5C', secondaryColor: '#FFC53D', logoUrl: null, isActive: true },
+  { id: 'aurum', name: 'Aurum', domain: 'aurum.com.br', primaryColor: '#8A6D1F', secondaryColor: '#16181D', logoUrl: null, isActive: true },
+  { id: 'rubi', name: 'Rubi Bank', domain: 'rubibank.com.br', primaryColor: '#C81E4B', secondaryColor: '#5B2A86', logoUrl: null, isActive: true },
 ];
 
 export const MOCK_USER: User = {

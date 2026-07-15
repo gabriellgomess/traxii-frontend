@@ -10,6 +10,42 @@ export interface Brand {
   secondaryColor: string;
   /** URL ou data-URL da logo; null usa a inicial do nome sobre a cor primária */
   logoUrl: string | null;
+  isActive: boolean;
+}
+
+/* ---------- Usuários do sistema (admin / backoffice) ---------- */
+
+export type SystemRole = 'super_admin' | 'company_admin' | 'company_operator';
+
+export interface SystemUser {
+  id: number;
+  name: string;
+  email: string;
+  role: SystemRole;
+  companyId: number | null;
+}
+
+/** Shape da empresa como a API Laravel devolve */
+export interface ApiCompany {
+  id: number;
+  name: string;
+  domain: string | null;
+  primary_color: string;
+  secondary_color: string;
+  logo_url: string | null;
+  is_active: boolean;
+}
+
+export function brandFromCompany(c: ApiCompany): Brand {
+  return {
+    id: String(c.id),
+    name: c.name,
+    domain: c.domain ?? '',
+    primaryColor: c.primary_color,
+    secondaryColor: c.secondary_color,
+    logoUrl: c.logo_url,
+    isActive: c.is_active ?? true,
+  };
 }
 
 export interface User {

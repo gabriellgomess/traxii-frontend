@@ -1,6 +1,7 @@
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../../components/Icon';
+import { useAdminAuth } from '../../contexts/AdminAuthContext';
 import { useBrand } from '../../contexts/BrandContext';
 import type { Brand } from '../../types';
 
@@ -10,50 +11,100 @@ const labelClass = 'mb-1.5 block text-xs font-bold text-slate-ink';
 
 function emptyBrand(): Brand {
   return {
-    id: 'c' + Date.now(),
+    id: '',
     name: '',
     domain: '',
     primaryColor: '#1437C9',
     secondaryColor: '#FF7A1A',
     logoUrl: null,
+    isActive: true,
   };
 }
 
 export function Admin() {
-  const { brands, activeBrand, activateBrand, saveBrand, deleteBrand } = useBrand();
+  const { user, logout } = useAdminAuth();
+  const { brands, activeBrand, activateBrand, loadBrands, saveBrand, deleteBrand } =
+    useBrand();
+
   const [edit, setEdit] = useState<Brand | null>(null);
   const [isNew, setIsNew] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [removeLogo, setRemoveLogo] = useState(false);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadBrands()
+      .catch(() => setError('Não foi possível carregar as empresas.'))
+      .finally(() => setLoading(false));
+  }, [loadBrands]);
 
   const editInitial = edit ? (edit.name || '?').charAt(0).toUpperCase() : '?';
 
   function patch(changes: Partial<Brand>) {
     setEdit((e) => (e ? { ...e, ...changes } : e));
+    setError('');
+  }
+
+  function startEdit(brand: Brand) {
+    setEdit({ ...brand });
+    setIsNew(false);
+    setLogoFile(null);
+    setRemoveLogo(false);
+    setError('');
+  }
+
+  function startNew() {
+    setEdit(emptyBrand());
+    setIsNew(true);
+    setLogoFile(null);
+    setRemoveLogo(false);
+    setError('');
   }
 
   function onLogoFile(ev: ChangeEvent<HTMLInputElement>) {
     const file = ev.target.files?.[0];
     if (!file) return;
+    setLogoFile(file);
+    setRemoveLogo(false);
     const reader = new FileReader();
     reader.onload = () => patch({ logoUrl: reader.result as string });
     reader.readAsDataURL(file);
   }
 
+  function onRemoveLogo() {
+    setLogoFile(null);
+    setRemoveLogo(true);
+    patch({ logoUrl: null });
+  }
+
   async function handleSave(apply: boolean) {
     if (!edit) return;
-    const brand = { ...edit };
-    if (!brand.name.trim()) brand.name = 'Sem nome';
-    if (!brand.domain.trim()) {
-      brand.domain = brand.name.toLowerCase().replace(/\s+/g, '') + '.com.br';
+    setSaving(true);
+    setError('');
+    try {
+      const saved = await saveBrand(edit, { isNew, logoFile, removeLogo }, apply);
+      setEdit(saved);
+      setIsNew(false);
+      setLogoFile(null);
+      setRemoveLogo(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível salvar.');
+    } finally {
+      setSaving(false);
     }
-    await saveBrand(brand, apply);
-    setEdit(brand);
-    setIsNew(false);
   }
 
   async function handleDelete() {
-    if (!edit) return;
-    await deleteBrand(edit.id);
-    setEdit(null);
+    if (!edit || isNew) return;
+    setError('');
+    try {
+      await deleteBrand(edit.id);
+      setEdit(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível excluir.');
+    }
   }
 
   return (
@@ -70,6 +121,7 @@ export function Admin() {
             </div>
           </div>
           <div className="flex-1" />
+          <div className="text-[13px] font-semibold text-muted">{user?.name}</div>
           <Link
             to="/"
             className="rounded-xl bg-white px-[22px] py-[13px] text-sm font-bold text-ink no-underline shadow-sm"
@@ -77,26 +129,38 @@ export function Admin() {
             Voltar ao site
           </Link>
           <button
-            onClick={() => {
-              setEdit(emptyBrand());
-              setIsNew(true);
-            }}
+            onClick={startNew}
             className="cursor-pointer rounded-xl border-none bg-ink px-[22px] py-[13px] text-sm font-bold text-white hover:brightness-150"
           >
             + Novo cliente
           </button>
+          <button
+            onClick={logout}
+            title="sair"
+            className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl border-none bg-white text-danger shadow-sm"
+          >
+            <Icon name="logout" size={18} />
+          </button>
         </div>
+
+        {error && !edit && (
+          <div className="mb-4 rounded-xl bg-danger/10 px-4 py-3 text-[13px] font-semibold text-danger">
+            {error}
+          </div>
+        )}
 
         <div className="grid items-start gap-[22px] lg:grid-cols-[minmax(280px,400px)_minmax(0,1fr)]">
           {/* lista de clientes */}
           <div className="flex flex-col gap-3">
+            {loading && (
+              <div className="rounded-2xl bg-white p-4 text-[13px] font-semibold text-muted shadow-sm">
+                Carregando empresas…
+              </div>
+            )}
             {brands.map((brand) => (
               <div
                 key={brand.id}
-                onClick={() => {
-                  setEdit({ ...brand });
-                  setIsNew(false);
-                }}
+                onClick={() => startEdit(brand)}
                 className="flex cursor-pointer items-center gap-3.5 rounded-2xl bg-white p-4 shadow-sm"
                 style={{
                   border:
@@ -245,29 +309,35 @@ export function Admin() {
                       </label>
                       {edit.logoUrl && (
                         <button
-                          onClick={() => patch({ logoUrl: null })}
+                          onClick={onRemoveLogo}
                           className="cursor-pointer border-none bg-transparent text-[13px] font-bold text-danger"
                         >
                           remover
                         </button>
                       )}
                       <div className="text-xs font-semibold text-muted">
-                        Sem logo, usamos a inicial do nome sobre a cor primária.
+                        Sem logo, usamos a inicial do nome sobre a cor primária. Máx. 2 MB.
                       </div>
                     </div>
                   </div>
                 </div>
 
+                {error && (
+                  <div className="mt-4 text-[13px] font-semibold text-danger">{error}</div>
+                )}
+
                 <div className="mt-6 flex items-center gap-3">
                   <button
                     onClick={() => handleSave(false)}
-                    className="cursor-pointer rounded-xl border-none bg-ink px-[26px] py-3.5 text-sm font-bold text-white hover:brightness-150"
+                    disabled={saving}
+                    className="cursor-pointer rounded-xl border-none bg-ink px-[26px] py-3.5 text-sm font-bold text-white hover:brightness-150 disabled:opacity-60"
                   >
-                    Salvar cliente
+                    {saving ? 'Salvando…' : 'Salvar cliente'}
                   </button>
                   <button
                     onClick={() => handleSave(true)}
-                    className="cursor-pointer rounded-xl border-none px-[26px] py-3.5 text-sm font-bold text-white hover:brightness-110"
+                    disabled={saving}
+                    className="cursor-pointer rounded-xl border-none px-[26px] py-3.5 text-sm font-bold text-white hover:brightness-110 disabled:opacity-60"
                     style={{ background: edit.primaryColor }}
                   >
                     Salvar e aplicar tema

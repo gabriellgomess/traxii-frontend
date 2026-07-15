@@ -1,10 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { AdminAuthProvider, RequireAdmin } from './contexts/AdminAuthContext';
 import { AuthProvider, RequireAuth } from './contexts/AuthContext';
 import { BrandProvider } from './contexts/BrandContext';
 import { AppLayout } from './layouts/AppLayout';
 import { Landing } from './pages/Landing';
 import { Login } from './pages/Login';
 import { Admin } from './pages/admin/Admin';
+import { AdminLogin } from './pages/admin/AdminLogin';
 import { Home } from './pages/app/Home';
 import { Pix } from './pages/app/Pix';
 import { Ted } from './pages/app/Ted';
@@ -16,11 +18,20 @@ export default function App() {
   return (
     <BrowserRouter>
       <BrandProvider>
+        <AdminAuthProvider>
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route
+              path="/admin"
+              element={
+                <RequireAdmin>
+                  <Admin />
+                </RequireAdmin>
+              }
+            />
             <Route
               path="/app"
               element={
@@ -39,6 +50,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AuthProvider>
+        </AdminAuthProvider>
       </BrandProvider>
     </BrowserRouter>
   );

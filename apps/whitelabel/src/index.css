@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import 'tailwindcss';
+
+/* Classes usadas pelos componentes compartilhados */
+@source '../../../packages/shared/src';
+
+/* Cores da marca ativa — sobrescritas em runtime pelo BrandContext */
+:root {
+  --p: #1437c9;
+  --s: #ff7a1a;
+  --psoft: #1437c914;
+}
+
+@theme inline {
+  --color-primary: var(--p);
+  --color-secondary: var(--s);
+  --color-primary-soft: var(--psoft);
+}
+
+@theme {
+  --font-sans: 'Manrope', sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
+
+  --color-ink: #16181d;
+  --color-muted: #8a90a0;
+  --color-muted-2: #6b7285;
+  --color-slate-ink: #3c4257;
+  --color-page: #eef1f6;
+  --color-soft: #f2f4f9;
+  --color-line: #e8ebf1;
+  --color-field: #dde1ea;
+  --color-danger: #d5364f;
+  --color-positive: #0b8a5c;
+}
+
+body {
+  margin: 0;
+  background: var(--color-page);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-fade-up { animation: fadeUp 0.4s ease both; }
+.animate-pop { animation: pop 0.4s ease both; }

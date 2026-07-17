@@ -44,10 +44,15 @@ interface RequestOptions {
   body?: unknown;
   /** Corpo multipart (uploads) — tem precedência sobre body */
   formData?: FormData;
+  /** Headers extras (ex.: X-Opening-Token do wizard de abertura de conta) */
+  headers?: Record<string, string>;
 }
 
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...options.headers,
+  };
 
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;

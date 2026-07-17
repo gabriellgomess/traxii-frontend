@@ -4,6 +4,7 @@ import { BrandProvider } from './contexts/BrandContext';
 import { AppLayout } from './layouts/AppLayout';
 import { Landing } from './pages/Landing';
 import { Login } from './pages/Login';
+import { AbrirConta } from './pages/onboarding/AbrirConta';
 import { Home } from './pages/app/Home';
 import { Pix } from './pages/app/Pix';
 import { Ted } from './pages/app/Ted';
@@ -19,6 +20,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/abrir-conta" element={<AbrirConta />} />
             <Route
               path="/app"
               element={

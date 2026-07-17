@@ -70,7 +70,10 @@ export function Landing() {
               >
                 Acessar Internet Banking
               </button>
-              <button className="cursor-pointer rounded-full border border-white/25 bg-transparent px-[26px] py-4 text-sm font-semibold text-white hover:border-white">
+              <button
+                onClick={() => navigate('/abrir-conta')}
+                className="cursor-pointer rounded-full border border-white/25 bg-transparent px-[26px] py-4 text-sm font-semibold text-white hover:border-white"
+              >
                 Abrir conta grátis
               </button>
             </div>

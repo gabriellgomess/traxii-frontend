@@ -1,32 +1,76 @@
 /** Etapa 3 — upload de documento (frente/verso) e comprovante de residência. */
 
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faFileArrowUp } from '@fortawesome/free-solid-svg-icons';
 import { HttpError } from '@traxii/shared';
 import {
+  updatePersonalData,
   uploadDocuments,
   type OpeningProgress,
 } from '../../../services/accountOpeningService';
-import { FormError, scrollToFirstError, StepButtons } from '../ui';
+import { FormError, scrollToFirstError, selectClass, StepButtons } from '../ui';
 
 type Slot = 'document_front' | 'document_back' | 'address_proof';
 
-const SLOTS: Array<{ id: Slot; title: string; hint: string }> = [
-  { id: 'document_front', title: 'Documento — frente', hint: 'RG ou CNH aberto, com foto visível' },
-  { id: 'document_back', title: 'Documento — verso', hint: 'Verso do mesmo documento' },
-  { id: 'address_proof', title: 'Comprovante de residência', hint: 'Conta de luz, água ou telefone (até 90 dias)' },
-];
+interface SlotConfig {
+  id: Slot;
+  title: string;
+  hint: string;
+}
+
+const ADDRESS_PROOF_SLOT: SlotConfig = {
+  id: 'address_proof',
+  title: 'Comprovante de residência',
+  hint: 'Conta de luz, água ou telefone (até 90 dias)',
+};
+
+/**
+ * Monta os slots do documento de identificação — rótulos genéricos, sem
+ * menção a RG/CNH. RG sempre pede frente e verso separados. CNH pergunta
+ * antes, via o checkbox "Frente e verso": marcado = um único arquivo com os
+ * dois lados (ex.: CNH digital em PDF); desmarcado = frente e verso
+ * separados. O comprovante de residência é sempre exibido à parte, mesmo
+ * antes de escolher o tipo de documento.
+ */
+function buildDocumentSlots(documentType: 'rg' | 'cnh', combinedFile: boolean): SlotConfig[] {
+  if (documentType === 'cnh' && combinedFile) {
+    return [
+      { id: 'document_front', title: 'Documento', hint: 'PDF ou imagem com frente e verso no mesmo arquivo' },
+    ];
+  }
+
+  return [
+    { id: 'document_front', title: 'Documento (Frente)', hint: 'Foto ou scan da frente' },
+    { id: 'document_back', title: 'Documento (Verso)', hint: 'Foto ou scan do verso' },
+  ];
+}
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_SIZE_MB = 8;
 
 interface DocumentosStepProps {
   progress: OpeningProgress;
+  /** Atualiza o progresso no componente pai sem avançar de etapa (ex.: troca de tipo de documento). */
+  onUpdate: (progress: OpeningProgress) => void;
   onDone: (progress: OpeningProgress) => void;
 }
 
-export function DocumentosStep({ progress, onDone }: DocumentosStepProps) {
+export function DocumentosStep({ progress, onUpdate, onDone }: DocumentosStepProps) {
+  const persistedType = progress.personal_data.document_type;
+
+  // Select e checkbox sempre começam sem nada marcado — os campos de upload
+  // só aparecem depois que o usuário escolhe o tipo aqui nesta tela.
+  const [selectedType, setSelectedType] = useState<'' | 'rg' | 'cnh'>('');
+  const [combinedFile, setCombinedFile] = useState(false);
+  const [docTypeSaving, setDocTypeSaving] = useState(false);
+
+  const isCnh = selectedType === 'cnh';
+  // Comprovante de residência sempre visível; os slots do documento de
+  // identificação só aparecem depois que o tipo é escolhido acima.
+  const documentSlots = selectedType === '' ? [] : buildDocumentSlots(selectedType, combinedFile);
+  const SLOTS = [...documentSlots, ADDRESS_PROOF_SLOT];
+
   const inputRefs = useRef<Record<Slot, HTMLInputElement | null>>({
     document_front: null,
     document_back: null,
@@ -38,11 +82,50 @@ export function DocumentosStep({ progress, onDone }: DocumentosStepProps) {
   const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Ao trocar de tipo de documento ou o checkbox "Frente e verso", descarta
+  // seleção que não corresponde mais a nenhum slot visível (ex.: verso
+  // selecionado antes de marcar "Frente e verso" novamente)
+  useEffect(() => {
+    const visibleIds = new Set(SLOTS.map((slot) => slot.id));
+    setSelected((prev) => {
+      const next = Object.fromEntries(
+        Object.entries(prev).filter(([id]) => visibleIds.has(id as Slot)),
+      ) as Partial<Record<Slot, File>>;
+      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedType, combinedFile]);
+
+  async function handleDocumentTypeChange(newType: 'rg' | 'cnh'): Promise<void> {
+    if (docTypeSaving) return;
+
+    // Revela os campos de upload na hora; só espera a API se o tipo mudou
+    // de verdade em relação ao que já está salvo.
+    setSelectedType(newType);
+    if (newType === persistedType) return;
+
+    setFormError('');
+    setDocTypeSaving(true);
+    try {
+      const updated = await updatePersonalData({ ...progress.personal_data, document_type: newType });
+      onUpdate(updated);
+    } catch (err) {
+      setFormError(
+        err instanceof HttpError
+          ? err.message
+          : 'Não foi possível alterar o tipo de documento.',
+      );
+      setSelectedType('');
+    } finally {
+      setDocTypeSaving(false);
+    }
+  }
+
   function isSlotReady(slot: Slot): boolean {
     return Boolean(selected[slot]) || progress.documents[slot].uploaded;
   }
 
-  const allReady = SLOTS.every((slot) => isSlotReady(slot.id));
+  const allReady = selectedType !== '' && SLOTS.every((slot) => isSlotReady(slot.id));
 
   function handleFile(slot: Slot, e: ChangeEvent<HTMLInputElement>): void {
     const file = e.target.files?.[0];
@@ -112,6 +195,36 @@ export function DocumentosStep({ progress, onDone }: DocumentosStepProps) {
 
   return (
     <div>
+      <div className="mb-4">
+        <label className="mb-1.5 block text-xs font-bold text-slate-ink">
+          Tipo de documento
+        </label>
+        <select
+          value={selectedType}
+          onChange={(e) => void handleDocumentTypeChange(e.target.value as 'rg' | 'cnh')}
+          disabled={docTypeSaving}
+          className={selectClass}
+        >
+          <option value="" disabled hidden>
+            Selecione o tipo de documento
+          </option>
+          <option value="rg">RG (Carteira de Identidade)</option>
+          <option value="cnh">CNH</option>
+        </select>
+
+        {isCnh && (
+          <label className="mt-3 flex cursor-pointer items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={combinedFile}
+              onChange={(e) => setCombinedFile(e.target.checked)}
+              className="h-[18px] w-[18px] cursor-pointer accent-primary"
+            />
+            <span className="text-sm font-semibold text-ink">Frente e verso</span>
+          </label>
+        )}
+      </div>
+
       <div className="flex flex-col gap-3.5">
         {SLOTS.map((slot) => {
           const ready = isSlotReady(slot.id);

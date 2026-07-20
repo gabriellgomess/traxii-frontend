@@ -11,8 +11,6 @@ import { api } from '@traxii/shared';
 export interface PersonalDataPayload {
   full_name: string;
   email: string;
-  password?: string;
-  password_confirmation?: string;
   cpf: string;
   document_type: 'rg' | 'cnh';
   document_number: string;
@@ -39,7 +37,7 @@ export interface OpeningProgress {
   status: 'draft' | 'pending' | 'in_analysis' | 'approved' | 'rejected';
   current_step: number;
   total_steps: number;
-  personal_data: Omit<PersonalDataPayload, 'password' | 'password_confirmation'>;
+  personal_data: PersonalDataPayload;
   address: Partial<AddressPayload>;
   documents: Record<DocumentSlot, { uploaded: boolean; original_name: string | null; size: number | null }>;
   liveness_completed: boolean;
@@ -110,7 +108,7 @@ export async function fetchOpeningProgress(): Promise<OpeningProgress> {
   return res.data;
 }
 
-/** Etapa 1 — edição (senha em branco mantém a atual). */
+/** Etapa 1 — edição dos dados pessoais de um rascunho existente. */
 export async function updatePersonalData(payload: PersonalDataPayload): Promise<OpeningProgress> {
   const res = await api<OpeningResponse>(openingPath('/personal-data'), {
     method: 'PUT',

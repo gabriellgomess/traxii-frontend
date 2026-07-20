@@ -232,7 +232,7 @@ export function AbrirConta() {
                 <EnderecoStep progress={progress} onDone={advance} />
               )}
               {step === 3 && progress && (
-                <DocumentosStep progress={progress} onDone={advance} />
+                <DocumentosStep progress={progress} onUpdate={setProgress} onDone={advance} />
               )}
               {step === 4 && progress && (
                 <ProvaVidaStep

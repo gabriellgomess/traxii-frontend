@@ -6,7 +6,7 @@ export const inputClass =
   'w-full box-border rounded-xl border-[1.5px] border-field px-3.5 py-[13px] text-sm ' +
   'font-semibold text-ink outline-none focus:border-primary disabled:bg-soft disabled:text-muted';
 
-export const selectClass = inputClass + ' bg-white appearance-none';
+export const selectClass = inputClass + ' bg-white appearance-none cursor-pointer';
 
 interface FieldProps {
   label: string;

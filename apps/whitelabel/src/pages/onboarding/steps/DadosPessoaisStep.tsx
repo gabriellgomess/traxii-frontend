@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faCircleInfo } from '@fortawesome/free-solid-svg-icons';
 import { HttpError } from '@traxii/shared';
 import {
   getOpeningSession,
@@ -13,9 +13,7 @@ import {
 } from '../../../services/accountOpeningService';
 import { maskCpf, maskPhone, onlyDigits } from '../../../utils/masks';
 import {
-  checkPassword,
   isAdult,
-  isStrongPassword,
   isValidCellPhone,
   isValidCpf,
   isValidEmail,
@@ -36,14 +34,6 @@ interface DadosPessoaisStepProps {
   onDone: (progress: OpeningProgress) => void;
 }
 
-const PASSWORD_RULES: Array<{ key: keyof ReturnType<typeof checkPassword>; label: string }> = [
-  { key: 'minLength', label: 'Pelo menos 8 caracteres' },
-  { key: 'uppercase', label: 'Uma letra maiúscula' },
-  { key: 'lowercase', label: 'Uma letra minúscula' },
-  { key: 'number', label: 'Um número' },
-  { key: 'symbol', label: 'Um caractere especial (!@#$…)' },
-];
-
 export function DadosPessoaisStep({ progress, onDone }: DadosPessoaisStepProps) {
   const saved = progress?.personal_data;
   const isEditing = getOpeningSession() !== null && saved !== undefined;
@@ -51,8 +41,6 @@ export function DadosPessoaisStep({ progress, onDone }: DadosPessoaisStepProps) 
   const [form, setForm] = useState({
     full_name: saved?.full_name ?? '',
     email: saved?.email ?? '',
-    password: '',
-    password_confirmation: '',
     cpf: saved ? maskCpf(saved.cpf) : '',
     document_type: saved?.document_type ?? ('rg' as 'rg' | 'cnh'),
     document_number: saved?.document_number ?? '',
@@ -64,11 +52,6 @@ export function DadosPessoaisStep({ progress, onDone }: DadosPessoaisStepProps) 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
-
-  const passwordChecks = checkPassword(form.password);
-  // Requisitos aparecem apenas enquanto a senha está sendo digitada
-  const showPasswordRules = passwordFocused || form.password !== '';
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]): void {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -82,17 +65,6 @@ export function DadosPessoaisStep({ progress, onDone }: DadosPessoaisStepProps) 
       next.full_name = 'Informe seu nome completo (nome e sobrenome).';
     }
     if (!isValidEmail(form.email)) next.email = 'Informe um e-mail válido.';
-
-    const passwordRequired = !isEditing;
-    if (passwordRequired || form.password !== '') {
-      if (!isStrongPassword(form.password)) {
-        next.password = 'A senha não atende aos requisitos abaixo.';
-      }
-      if (form.password !== form.password_confirmation) {
-        next.password_confirmation = 'A confirmação de senha não confere.';
-      }
-    }
-
     if (!isValidCpf(form.cpf)) next.cpf = 'CPF inválido.';
     if (onlyDigits(form.document_number).length === 0 || form.document_number.trim().length < 3) {
       next.document_number = 'Informe o número do documento.';
@@ -131,10 +103,6 @@ export function DadosPessoaisStep({ progress, onDone }: DadosPessoaisStepProps) 
       birth_date: form.birth_date,
       phone: onlyDigits(form.phone),
     };
-    if (form.password !== '') {
-      payload.password = form.password;
-      payload.password_confirmation = form.password_confirmation;
-    }
 
     setLoading(true);
     try {
@@ -183,62 +151,6 @@ export function DadosPessoaisStep({ progress, onDone }: DadosPessoaisStepProps) 
             className={inputClass}
           />
         </Field>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={isEditing ? 'Nova senha (opcional)' : 'Senha'} error={errors.password}>
-            <input
-              type="password"
-              value={form.password}
-              onChange={(e) => set('password', e.target.value)}
-              onFocus={() => setPasswordFocused(true)}
-              onBlur={() => setPasswordFocused(false)}
-              placeholder="••••••••"
-              autoComplete="new-password"
-              maxLength={64}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Confirmar senha" error={errors.password_confirmation}>
-            <input
-              type="password"
-              value={form.password_confirmation}
-              onChange={(e) => set('password_confirmation', e.target.value)}
-              placeholder="••••••••"
-              autoComplete="new-password"
-              maxLength={64}
-              className={inputClass}
-            />
-          </Field>
-        </div>
-
-        {showPasswordRules && (
-          <div className="flex flex-col gap-2 rounded-xl bg-soft p-3.5">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-muted">
-              Sua senha deve ter
-            </div>
-            {PASSWORD_RULES.map((rule) => {
-              const ok = passwordChecks[rule.key];
-              return (
-                <div key={rule.key} className="flex items-center gap-2.5">
-                  <span
-                    className={`grid h-4 w-4 shrink-0 place-items-center rounded-full ${
-                      ok ? 'bg-positive text-white' : 'bg-field text-transparent'
-                    }`}
-                  >
-                    <FontAwesomeIcon icon={faCheck} style={{ width: 8, height: 8 }} />
-                  </span>
-                  <span
-                    className={`text-xs font-semibold ${
-                      ok ? 'text-positive' : 'text-muted-2'
-                    }`}
-                  >
-                    {rule.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
 
         <Field label="CPF" error={errors.cpf}>
           <input
@@ -322,6 +234,19 @@ export function DadosPessoaisStep({ progress, onDone }: DadosPessoaisStepProps) 
           </Field>
         </div>
       </div>
+
+      {!isEditing && (
+        <div className="mt-5 flex items-start gap-3 rounded-xl bg-primary-soft p-3.5">
+          <FontAwesomeIcon
+            icon={faCircleInfo}
+            style={{ width: 16, height: 16, marginTop: 2 }}
+            className="shrink-0 text-primary"
+          />
+          <div className="text-xs font-semibold leading-relaxed text-slate-ink">
+            Analisaremos seus dados e enviaremos o acesso por e-mail.
+          </div>
+        </div>
+      )}
 
       <FormError message={formError} />
       <StepButtons loading={loading} nextLabel="Próximo" />
